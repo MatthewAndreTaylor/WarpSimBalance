@@ -9,20 +9,21 @@ import random
 @wp.kernel
 def set_cart_kernel(body_q: wp.array(dtype=wp.transform), t: float):
     r = 2.0
-    omega = 5.0 # frequency of cart oscillation (speed)
+    omega = 5.0  # frequency of cart oscillation (speed)
     # omega = 0.1
-    
+
     x = r * wp.cos(omega * t)
     z = r * wp.sin(omega * t)
     y = 2.0
     body_q[0] = wp.transform(wp.vec3(x, y, z), wp.quat_identity())
+
 
 class Example:
     def __init__(self):
 
         builder = wp.sim.ModelBuilder()
         self.create_cartpole(builder)
-        
+
         self.sim_time = 0.0
         fps = 120
         self.frame_dt = 1.0 / fps
@@ -46,11 +47,15 @@ class Example:
 
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
-        self.renderer = wp.sim.render.SimRendererOpenGL(self.model, "example3", headless=False)
+        self.renderer = wp.sim.render.SimRendererOpenGL(
+            self.model, "example3", headless=False
+        )
         # self.renderer = wp.sim.render.SimRenderer(self.model, path="example3.usd")
         self.state = self.model.state()
 
-        wp.sim.eval_fk(self.model, self.model.joint_q, self.model.joint_qd, None, self.state)
+        wp.sim.eval_fk(
+            self.model, self.model.joint_q, self.model.joint_qd, None, self.state
+        )
 
         self.use_cuda_graph = wp.get_device().is_cuda
         if self.use_cuda_graph:
@@ -60,31 +65,26 @@ class Example:
 
     def create_cartpole(self, builder):
         """Create cartpole system using pure Python/Warp API"""
-        
+
         # Material properties
         density = 100.0  # kg/m^3
-        
+
         # Pole properties (0.04 x 1.0 x 0.06 box)
         pole_size = wp.vec3(0.04, 1.0, 0.06)
-        
+
         # Create cart body (kinematic - not affected by gravity)
         cart_body = builder.add_body(
-            origin=wp.transform(wp.vec3(0.0, 2.0, 0.0), wp.quat_identity()),
-            m=0.0
+            origin=wp.transform(wp.vec3(0.0, 2.0, 0.0), wp.quat_identity()), m=0.0
         )
-        
+
         # Add cart shape
-        builder.add_shape_sphere(
-            body=cart_body,
-            radius=0.1,
-            density=0.0
-        )
-        
+        builder.add_shape_sphere(body=cart_body, radius=0.1, density=0.0)
+
         # Create pole body
         pole_body = builder.add_body(
             origin=wp.transform(wp.vec3(0.0, 2.5, 0.0), wp.quat_identity()),
         )
-        
+
         # Add pole shape
         builder.add_shape_box(
             body=pole_body,
@@ -92,9 +92,9 @@ class Example:
             hx=pole_size[0] / 2.0,
             hy=pole_size[1] / 2.0,
             hz=pole_size[2] / 2.0,
-            density=density
+            density=density,
         )
-        
+
         # Create spherical joint connecting cart to pole
         builder.add_joint_ball(
             parent=cart_body,
@@ -108,13 +108,15 @@ class Example:
             kernel=set_cart_kernel,
             dim=1,
             inputs=[state.body_q, t],
-            device=state.body_q.device
+            device=state.body_q.device,
         )
 
     def simulate(self):
-        for _ in range(self.sim_substeps):  
+        for _ in range(self.sim_substeps):
             self.state.clear_forces()
-            self.state = self.integrator.simulate(self.model, self.state, self.state, self.sim_dt)
+            self.state = self.integrator.simulate(
+                self.model, self.state, self.state, self.sim_dt
+            )
 
     def step(self):
         self.set_cart_trajectory(self.state, self.sim_time)
@@ -134,9 +136,15 @@ class Example:
 if __name__ == "__main__":
     import argparse
 
-    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("--device", type=str, default=None, help="Override the default Warp device.")
-    parser.add_argument("--num-frames", type=int, default=10000, help="Total number of frames.")
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+    parser.add_argument(
+        "--device", type=str, default=None, help="Override the default Warp device."
+    )
+    parser.add_argument(
+        "--num-frames", type=int, default=10000, help="Total number of frames."
+    )
 
     args = parser.parse_known_args()[0]
 

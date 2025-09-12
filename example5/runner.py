@@ -17,7 +17,7 @@ parser.add_argument("--load", type=bool, default=False)  # Load an existing mode
 parser.add_argument("--save", type=bool, default=True)  # Save the model
 parser.add_argument("--model", type=str, default="model.pt")
 parser.add_argument("--lr", type=float, default=0.01)  # Learning rate
-parser.add_argument("--episodes", type=int, default=700)  # Number of training episodes
+parser.add_argument("--episodes", type=int, default=1000)  # Number of training episodes
 parser.add_argument("--gamma", type=float, default=0.99)  # Discount factor
 args = parser.parse_args()
 
@@ -190,9 +190,10 @@ class Runner:
             self.writer.add_scalar("Critic Loss", c_loss, episode)
             self.writer.add_scalar("Actor Loss", a_loss, episode)
             self.writer.add_scalar("Reward", rewards, episode)
-            self.writer.add_scalar("Mean Reward", np.mean(smoothed_reward), episode)
 
-            if episode % 20 == 0:
+            if episode % 25 == 0:
+                self.writer.add_scalar("Mean Reward", np.mean(smoothed_reward), episode)
+
                 print(
                     f"Episode {episode} \t Final Reward {rewards:.2f} \t Average Reward: {np.mean(smoothed_reward):.2f}"
                 )

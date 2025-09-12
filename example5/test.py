@@ -33,21 +33,26 @@ def make_actions(N):
 
 class Example:
     def __init__(self):
-        builder = wp.sim.ModelBuilder(gravity=-3.0)
+        builder = wp.sim.ModelBuilder(gravity=-9.0)
         self.create_cartpole(builder)
 
         self.action_space_type = ActionSpaceType.DISCRETE
         # self.actions = make_actions(16)
+        # self.actions = [
+        #     wp.vec2(0.0, 0.0),  # No movement
+        #     wp.vec2(0.01, 0.0),  # Move right
+        #     wp.vec2(-0.01, 0.0),  # Move left
+        #     wp.vec2(0.0, 0.01),  # Move up
+        #     wp.vec2(0.0, -0.01),  # Move down
+        #     wp.vec2(0.01, 0.01),  # Move right-up
+        #     wp.vec2(-0.01, 0.01),  # Move left-up
+        #     wp.vec2(0.01, -0.01),  # Move right-down
+        #     wp.vec2(-0.01, -0.01),  # Move left-down
+        # ]
         self.actions = [
             wp.vec2(0.0, 0.0),  # No movement
             wp.vec2(0.01, 0.0),  # Move right
             wp.vec2(-0.01, 0.0),  # Move left
-            wp.vec2(0.0, 0.01),  # Move up
-            wp.vec2(0.0, -0.01),  # Move down
-            wp.vec2(0.01, 0.01),  # Move right-up
-            wp.vec2(-0.01, 0.01),  # Move left-up
-            wp.vec2(0.01, -0.01),  # Move right-down
-            wp.vec2(-0.01, -0.01),  # Move left-down
         ]
 
         self.sim_time = 0.0
@@ -98,11 +103,22 @@ class Example:
             hz=pole_size[2] / 2.0,
             density=50.0,
         )
-        builder.add_joint_ball(
+        # builder.add_joint_ball(
+        #     parent=cart_body,
+        #     child=pole_body,
+        #     parent_xform=wp.transform(wp.vec3(0.0, 0.0, 0.0), wp.quat_identity()),
+        #     child_xform=wp.transform(wp.vec3(0.0, -0.5, 0.0), wp.quat_identity()),
+        # )
+        builder.add_joint_revolute(
             parent=cart_body,
             child=pole_body,
+            axis=wp.vec3(0.0, 0.0, 1.0),  # rotation around Z-axis
             parent_xform=wp.transform(wp.vec3(0.0, 0.0, 0.0), wp.quat_identity()),
-            child_xform=wp.transform(wp.vec3(0.0, -0.5, 0.0), wp.quat_identity()),
+            child_xform=wp.transform(
+                wp.vec3(0.0, -0.5, 0.0), wp.quat_identity()
+            ),  # joint at pole base
+            limit_ke=1.0e4,
+            limit_kd=1.0e1,
         )
 
     def set_cart_trajectory(self, state, action):
@@ -123,11 +139,20 @@ class Example:
             device=state.body_q.device,
         )
 
+    def is_fallen(self, pole_quat):
+        qw = float(np.clip(pole_quat[3], -1.0, 1.0))
+        tilt = 2.0 * np.arccos(qw)  # radians, in [0, pi]
+
+        # threshold: 90 degrees (tunable)
+        max_tilt = np.deg2rad(90.0)
+        terminated = bool(tilt > max_tilt)
+        return terminated
+
     def reset(self):
         self.current_x = 0.0
         self.current_z = 0.0
         self.sim_time = 0.0
-        builder = wp.sim.ModelBuilder(gravity=-3.0)
+        builder = wp.sim.ModelBuilder(gravity=-9.0)
         self.create_cartpole(builder)
         self.model = builder.finalize()
         self.model.joint_attach_ke = 150.0
@@ -157,15 +182,9 @@ class Example:
         # quaternion. For the upright pole the quaternion is identity (angle=0).
         # We compute angle = 2*arccos(qw). If it exceeds a threshold the pole
         # is considered fallen.
-        qw = float(np.clip(pole_quat[3], -1.0, 1.0))
-        tilt = 2.0 * np.arccos(qw)  # radians, in [0, pi]
+        terminated = self.is_fallen(pole_quat)
 
-        # threshold: 75 degrees (tunable)
-        max_tilt = np.deg2rad(75.0)
-        terminated = bool(tilt > max_tilt)
-        reward = 1.0
-
-        return obs, reward, terminated
+        return obs, 1.0, terminated
 
     def render(self):
         self.renderer.begin_frame(self.sim_time)
