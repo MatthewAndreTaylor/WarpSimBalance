@@ -99,9 +99,12 @@ class Example:
             raise NotImplementedError("Continuous action space not implemented")
 
         elif self.action_space_type == ActionSpaceType.DISCRETE:
-            discrete_action = self.actions[action]
-            self.curr_speed += discrete_action
-            self.current_pos += self.curr_speed * self.frame_dt
+                discrete_action = self.actions[action]
+                # Add velocity damping/friction
+                damping = 0.98  # 0 < damping < 1, lower = more friction
+                self.curr_speed *= damping
+                self.curr_speed += discrete_action
+                self.current_pos += self.curr_speed * self.frame_dt
 
         wp.launch(
             kernel=set_cart_kernel,
@@ -197,7 +200,7 @@ if __name__ == "__main__":
         "--device", type=str, default=None, help="Override the default Warp device."
     )
     parser.add_argument(
-        "--num-frames", type=int, default=1500, help="Total number of frames."
+        "--num-frames", type=int, default=1200, help="Total number of frames."
     )
     args = parser.parse_known_args()[0]
 
@@ -205,19 +208,22 @@ if __name__ == "__main__":
         example = Example()
 
         terminated = False
+        check_terminated = True
 
         for i in range(args.num_frames):
-            if not terminated:
+            if i < 200:
+                action = 0
+            elif i < 255:  # 260
+                action = 2
+            else:
+                action = 0
 
-                if i < 200:
-                    action = 0
-                elif i < 255:  # 260
-                    action = 2
-                else:
-                    action = 0
+            obs, reward, terminated = example.step(action=action)
+            print(f"Step {i}")
 
-                obs, reward, terminated = example.step(action=action)
-                print(f"Step {i}")
+            if check_terminated and terminated:
+                print("Pole fallen")
+                check_terminated = False
 
             example.render()
 
