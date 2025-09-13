@@ -13,11 +13,11 @@ from test import Example
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--load", type=bool, default=False)  # Load an existing model
-parser.add_argument("--save", type=bool, default=True)  # Save the model
-parser.add_argument("--model", type=str, default="model.pt")
+parser.add_argument("--load", action="store_true", help="Load an existing model")
+parser.add_argument("--save", type=bool, default=True, help="Save the model")
+parser.add_argument("--model", type=str, default="ac_ball_joint_balance/model.pt")
 parser.add_argument("--lr", type=float, default=0.01)  # Learning rate
-parser.add_argument("--episodes", type=int, default=600)  # Number of training episodes
+parser.add_argument("--episodes", type=int, default=800)  # Number of training episodes
 parser.add_argument("--gamma", type=float, default=0.99)  # Discount factor
 args = parser.parse_args()
 
@@ -228,7 +228,6 @@ def main():
         critic,
         a_optimizer,
         c_optimizer,
-        logs=f"ac_ball_joint_balance/{time.time()}",
     )
 
     print("Training Beginning ...")

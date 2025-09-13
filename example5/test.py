@@ -219,7 +219,6 @@ if __name__ == "__main__":
         check_terminated = True
 
         for i in range(args.num_frames):
-
             if args.use_manual_control:
                 # Manual control logic
                 if keyboard.is_pressed("k"):
