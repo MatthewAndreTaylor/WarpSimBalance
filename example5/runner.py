@@ -30,8 +30,8 @@ print(f"Using device: {device}")
 class Actor(nn.Module):
     def __init__(self, in_size, out_size):
         super(Actor, self).__init__()
-        self.linear1 = nn.Linear(in_size, 256)
-        self.linear2 = nn.Linear(256, out_size)
+        self.linear1 = nn.Linear(in_size, 128)
+        self.linear2 = nn.Linear(128, out_size)
         self.dropout = nn.Dropout(0.7)
         self.softmax = nn.Softmax(dim=1)
 
@@ -52,9 +52,8 @@ class Actor(nn.Module):
 class Critic(nn.Module):
     def __init__(self, in_size):
         super(Critic, self).__init__()
-        self.linear1 = nn.Linear(in_size, 256)
-        self.linear2 = nn.Linear(256, 1)
-        self.dropout = nn.Dropout(0.7)
+        self.linear1 = nn.Linear(in_size, 128)
+        self.linear2 = nn.Linear(128, 1)
 
         self.value_episode = []
         self.value_history = Variable(torch.Tensor()).to(device)
@@ -204,10 +203,10 @@ class Runner:
 
 
 def main():
-    # observation space: 9
+    # observation space: 8
     # action space:  (len(Example.actions))
-    actor = Actor(9, len(env.actions)).to(device)
-    critic = Critic(9).to(device)
+    actor = Actor(8, len(env.actions)).to(device)
+    critic = Critic(8).to(device)
     ac = ActorCritic(actor, critic)
 
     if args.load:

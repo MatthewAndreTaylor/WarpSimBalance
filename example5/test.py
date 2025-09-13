@@ -23,8 +23,8 @@ class Example:
         self.action_space_type = ActionSpaceType.DISCRETE
         self.actions = [
             wp.vec3(0.0, 0.0, 0.0),  # No movement
-            wp.vec3(0.01, 0.0, 0.0),  # Move right
-            wp.vec3(-0.01, 0.0, 0.0),  # Move left
+            wp.vec3(0.02, 0.0, 0.0),  # Move right
+            wp.vec3(-0.02, 0.0, 0.0),  # Move left
         ]
 
         self.sim_time = 0.0
@@ -101,7 +101,7 @@ class Example:
         elif self.action_space_type == ActionSpaceType.DISCRETE:
                 discrete_action = self.actions[action]
                 # Add velocity damping/friction
-                damping = 0.98  # 0 < damping < 1, lower = more friction
+                damping = 0.95  # 0 < damping < 1, lower = more friction
                 self.curr_speed *= damping
                 self.curr_speed += discrete_action
                 self.current_pos += self.curr_speed * self.frame_dt
@@ -149,8 +149,7 @@ class Example:
 
         self.sim_time += self.frame_dt
         obs = self.get_state_vector()
-
-        pole_quat = obs[2:6]  # quaternion part (qx, qy, qz, qw)
+        pole_quat = obs[1:5]  # quaternion part (qx, qy, qz, qw)
 
         # Check if the pole has fallen by computing the tilt angle from the
         # quaternion. For the upright pole the quaternion is identity (angle=0).
@@ -181,7 +180,8 @@ class Example:
 
         # --- Cart ---
         cart_pos = body_q[cart_id]  # [px, py, pz, qx, qy, qz, qw]
-        cart_pos = cart_pos[[0, 2]]
+        #cart_pos = cart_pos[[0, 2]]
+        cart_pos = cart_pos[[0]]
 
         # --- Pole ---
         pole_quat = body_q[pole_id][3:]  # quaternion part
