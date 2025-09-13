@@ -17,7 +17,7 @@ parser.add_argument("--load", type=bool, default=False)  # Load an existing mode
 parser.add_argument("--save", type=bool, default=True)  # Save the model
 parser.add_argument("--model", type=str, default="model.pt")
 parser.add_argument("--lr", type=float, default=0.01)  # Learning rate
-parser.add_argument("--episodes", type=int, default=1000)  # Number of training episodes
+parser.add_argument("--episodes", type=int, default=600)  # Number of training episodes
 parser.add_argument("--gamma", type=float, default=0.99)  # Discount factor
 args = parser.parse_args()
 
@@ -157,6 +157,7 @@ class Runner:
 
     def train(self, episodes, smooth=10):
         smoothed_reward = []
+        max_rewards = 0
 
         for episode in range(episodes):
             rewards = 0
@@ -189,6 +190,11 @@ class Runner:
             self.writer.add_scalar("Critic Loss", c_loss, episode)
             self.writer.add_scalar("Actor Loss", a_loss, episode)
             self.writer.add_scalar("Reward", rewards, episode)
+
+            if rewards >= 700 and rewards > max_rewards:
+                max_rewards = rewards
+                ac = ActorCritic(self.actor, self.critic)
+                torch.save(ac.state_dict(), f"{self.logs}/model_{episode}.pt")
 
             if episode % 25 == 0:
                 self.writer.add_scalar("Mean Reward", np.mean(smoothed_reward), episode)

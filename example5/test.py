@@ -17,14 +17,14 @@ class ActionSpaceType(enum.Enum):
 
 class Example:
     def __init__(self):
-        builder = wp.sim.ModelBuilder(gravity=-3.0)
+        builder = wp.sim.ModelBuilder(gravity=-2.9)
         self.create_cartpole(builder)
 
         self.action_space_type = ActionSpaceType.DISCRETE
         self.actions = [
             wp.vec3(0.0, 0.0, 0.0),  # No movement
-            wp.vec3(0.02, 0.0, 0.0),  # Move right
-            wp.vec3(-0.02, 0.0, 0.0),  # Move left
+            wp.vec3(0.05, 0.0, 0.0),  # Move right
+            wp.vec3(-0.05, 0.0, 0.0),  # Move left
         ]
 
         self.sim_time = 0.0
@@ -101,7 +101,7 @@ class Example:
         elif self.action_space_type == ActionSpaceType.DISCRETE:
                 discrete_action = self.actions[action]
                 # Add velocity damping/friction
-                damping = 0.95  # 0 < damping < 1, lower = more friction
+                damping = 0.97  # 0 < damping < 1, lower = more friction
                 self.curr_speed *= damping
                 self.curr_speed += discrete_action
                 self.current_pos += self.curr_speed * self.frame_dt
@@ -126,7 +126,7 @@ class Example:
         self.current_pos = wp.vec3(0.0, 2.0, 0.0)
         self.current_speed = wp.vec3(0.0, 0.0, 0.0)
         self.sim_time = 0.0
-        builder = wp.sim.ModelBuilder(gravity=-3.0)
+        builder = wp.sim.ModelBuilder(gravity=-2.9)
         self.create_cartpole(builder)
         self.model = builder.finalize()
         self.model.joint_attach_ke = 150.0
@@ -202,7 +202,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num-frames", type=int, default=1200, help="Total number of frames."
     )
+    parser.add_argument(
+        "--use-manual-control", action="store_true", help="Enable manual control."
+    )
+
     args = parser.parse_known_args()[0]
+
+    if args.use_manual_control:
+        print("Manual control enabled")
+        import keyboard
 
     with wp.ScopedDevice(args.device):
         example = Example()
@@ -211,15 +219,27 @@ if __name__ == "__main__":
         check_terminated = True
 
         for i in range(args.num_frames):
-            if i < 200:
-                action = 0
-            elif i < 255:  # 260
-                action = 2
+
+            if args.use_manual_control:
+                # Manual control logic
+                if keyboard.is_pressed("k"):
+                    action = 2
+                elif keyboard.is_pressed("l"):
+                    action = 1
+                else:
+                    action = 0
+
             else:
-                action = 0
+                # Example control signals
+                if i < 200:
+                    action = 0
+                elif i < 255:  # 260
+                    action = 2
+                else:
+                    action = 0
 
             obs, reward, terminated = example.step(action=action)
-            print(f"Step {i}")
+            # print(f"Step {i}")
 
             if check_terminated and terminated:
                 print("Pole fallen")
