@@ -6,58 +6,30 @@ import enum
 
 @wp.kernel
 def set_cart_kernel(
-    body_q: wp.array(dtype=wp.transform), control_x: float, control_z: float
+    body_q: wp.array(dtype=wp.transform), control_pos: wp.vec3
 ):
-    x = control_x  # Scale control signal
-    z = control_z  # Scale control signal
-    y = 2.0
-    body_q[0] = wp.transform(wp.vec3(x, y, z), wp.quat_identity())
+    body_q[0] = wp.transform(control_pos, wp.quat_identity())
 
 
 class ActionSpaceType(enum.Enum):
     CONTINUOUS = enum.auto()
     DISCRETE = enum.auto()
 
-
-def make_actions(N):
-    """N evenly spaced unit directions on the 2D unit circle, returned as wp.vec2."""
-    thetas = np.linspace(0, 2 * np.pi, N, endpoint=False)
-    actions = [wp.vec2(np.cos(theta), np.sin(theta)) for theta in thetas]
-    actions.append(wp.vec2(0.0, 0.0))
-
-    multiplier = 0.01
-    actions = [action * multiplier for action in actions]
-
-    return actions
-
-
 class Example:
     def __init__(self):
-        builder = wp.sim.ModelBuilder(gravity=-9.0)
+        builder = wp.sim.ModelBuilder(gravity=-3.0)
         self.create_cartpole(builder)
 
         self.action_space_type = ActionSpaceType.DISCRETE
-        # self.actions = make_actions(16)
-        # self.actions = [
-        #     wp.vec2(0.0, 0.0),  # No movement
-        #     wp.vec2(0.01, 0.0),  # Move right
-        #     wp.vec2(-0.01, 0.0),  # Move left
-        #     wp.vec2(0.0, 0.01),  # Move up
-        #     wp.vec2(0.0, -0.01),  # Move down
-        #     wp.vec2(0.01, 0.01),  # Move right-up
-        #     wp.vec2(-0.01, 0.01),  # Move left-up
-        #     wp.vec2(0.01, -0.01),  # Move right-down
-        #     wp.vec2(-0.01, -0.01),  # Move left-down
-        # ]
         self.actions = [
-            wp.vec2(0.0, 0.0),  # No movement
-            wp.vec2(0.01, 0.0),  # Move right
-            wp.vec2(-0.01, 0.0),  # Move left
+            wp.vec3(0.0, 0.0, 0.0),  # No movement
+            wp.vec3(0.01, 0.0, 0.0),  # Move right
+            wp.vec3(-0.01, 0.0, 0.0),  # Move left
         ]
 
         self.sim_time = 0.0
-        self.current_x = 0.0
-        self.current_z = 0.0
+        self.current_pos = wp.vec3(0.0, 2.0, 0.0)
+        self.curr_speed = wp.vec3(0.0, 0.0, 0.0)
 
         fps = 120
         self.frame_dt = 1.0 / fps
@@ -124,18 +96,17 @@ class Example:
     def set_cart_trajectory(self, state, action):
 
         if self.action_space_type == ActionSpaceType.CONTINUOUS:
-            self.current_x += action[0]
-            self.current_z += action[1]
+            raise NotImplementedError("Continuous action space not implemented")
 
         elif self.action_space_type == ActionSpaceType.DISCRETE:
             discrete_action = self.actions[action]
-            self.current_x += discrete_action[0]
-            self.current_z += discrete_action[1]
+            self.curr_speed += discrete_action
+            self.current_pos += self.curr_speed * self.frame_dt
 
         wp.launch(
             kernel=set_cart_kernel,
             dim=1,
-            inputs=[state.body_q, self.current_x, self.current_z],
+            inputs=[state.body_q, self.current_pos],
             device=state.body_q.device,
         )
 
@@ -149,10 +120,10 @@ class Example:
         return terminated
 
     def reset(self):
-        self.current_x = 0.0
-        self.current_z = 0.0
+        self.current_pos = wp.vec3(0.0, 2.0, 0.0)
+        self.current_speed = wp.vec3(0.0, 0.0, 0.0)
         self.sim_time = 0.0
-        builder = wp.sim.ModelBuilder(gravity=-9.0)
+        builder = wp.sim.ModelBuilder(gravity=-3.0)
         self.create_cartpole(builder)
         self.model = builder.finalize()
         self.model.joint_attach_ke = 150.0
@@ -183,7 +154,6 @@ class Example:
         # We compute angle = 2*arccos(qw). If it exceeds a threshold the pole
         # is considered fallen.
         terminated = self.is_fallen(pole_quat)
-
         return obs, 1.0, terminated
 
     def render(self):
