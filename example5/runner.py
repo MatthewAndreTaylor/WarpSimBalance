@@ -14,11 +14,12 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--load", action="store_true", help="Load an existing model")
-parser.add_argument("--save", type=bool, default=True, help="Save the model")
+parser.add_argument("--save", action="store_true", help="Save the model after training")
 parser.add_argument("--model", type=str, default="ac_ball_joint_balance/model.pt")
 parser.add_argument("--lr", type=float, default=0.01)  # Learning rate
 parser.add_argument("--episodes", type=int, default=800)  # Number of training episodes
 parser.add_argument("--gamma", type=float, default=0.99)  # Discount factor
+parser.add_argument("--run", action="store_true", help="Run the simulation")
 args = parser.parse_args()
 
 env = Example()
@@ -165,7 +166,7 @@ class Runner:
             self.entropy = 0
             done = False
 
-            for _ in range(800):
+            for _ in range(1000):
                 env.render()
                 self.estimate_value(state)
 
@@ -208,6 +209,15 @@ class Runner:
         torch.save(ac.state_dict(), f"{self.logs}/model.pt")
 
 
+    def run(self):
+        state = env.reset()
+
+        for _ in range(1200):
+            env.render()
+            action = self.select_action(state)
+            state, reward, done = env.step(action.data[0].item())
+
+
 def main():
     # observation space: 8
     # action space:  (len(Example.actions))
@@ -230,8 +240,11 @@ def main():
         c_optimizer,
     )
 
-    print("Training Beginning ...")
-    runner.train(args.episodes)
+    if args.run:
+        runner.run()
+    else:
+        print("Training Beginning ...")
+        runner.train(args.episodes)
 
     if args.save:
         print("Saving model...")

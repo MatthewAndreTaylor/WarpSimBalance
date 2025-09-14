@@ -17,7 +17,8 @@ class ActionSpaceType(enum.Enum):
 
 class Example:
     def __init__(self):
-        builder = wp.sim.ModelBuilder(gravity=-2.9)
+        self.gravity = -2.0
+        builder = wp.sim.ModelBuilder(gravity=self.gravity)
         self.create_cartpole(builder)
 
         self.action_space_type = ActionSpaceType.DISCRETE
@@ -126,7 +127,7 @@ class Example:
         self.current_pos = wp.vec3(0.0, 2.0, 0.0)
         self.current_speed = wp.vec3(0.0, 0.0, 0.0)
         self.sim_time = 0.0
-        builder = wp.sim.ModelBuilder(gravity=-2.9)
+        builder = wp.sim.ModelBuilder(gravity=self.gravity)
         self.create_cartpole(builder)
         self.model = builder.finalize()
         self.model.joint_attach_ke = 150.0
@@ -203,12 +204,12 @@ if __name__ == "__main__":
         "--num-frames", type=int, default=1200, help="Total number of frames."
     )
     parser.add_argument(
-        "--use-manual-control", action="store_true", help="Enable manual control."
+        "--manual-control", action="store_true", help="Enable manual control."
     )
 
     args = parser.parse_known_args()[0]
 
-    if args.use_manual_control:
+    if args.manual_control:
         print("Manual control enabled")
         import keyboard
 
@@ -219,7 +220,7 @@ if __name__ == "__main__":
         check_terminated = True
 
         for i in range(args.num_frames):
-            if args.use_manual_control:
+            if args.manual_control:
                 # Manual control logic
                 if keyboard.is_pressed("k"):
                     action = 2
