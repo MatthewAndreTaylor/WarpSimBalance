@@ -17,7 +17,7 @@ class ActionSpaceType(enum.Enum):
 
 class Example:
     def __init__(self):
-        self.gravity = -2.0
+        self.gravity = -1.0
         builder = wp.sim.ModelBuilder(gravity=self.gravity)
         self.create_cartpole(builder)
 
@@ -35,7 +35,7 @@ class Example:
         fps = 120
         self.frame_dt = 1.0 / fps
 
-        self.sim_substeps = 120
+        self.sim_substeps = 30
         self.sim_dt = self.frame_dt / self.sim_substeps
 
         # finalize model
@@ -49,8 +49,10 @@ class Example:
             self.model, "example", headless=False
         )
         self.state = self.model.state()
-
-        self.use_cuda_graph = wp.get_device().is_cuda and False
+        
+        self.use_cuda_graph = False
+        # self.use_cuda_graph = wp.get_device().is_cuda
+        
         if self.use_cuda_graph:
             with wp.ScopedCapture() as capture:
                 self.simulate()

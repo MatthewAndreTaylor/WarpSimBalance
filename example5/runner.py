@@ -1,5 +1,4 @@
 import numpy as np
-import time
 
 import torch
 import torch.nn as nn
@@ -98,14 +97,6 @@ class Runner:
         self.writer = SummaryWriter(logs)
         self.entropy = 0
 
-    def env_step(self, action):
-        state, reward, done = env.step(action)
-        return (
-            torch.FloatTensor([state]).to(device),
-            torch.FloatTensor([reward]).to(device),
-            done,
-        )
-
     def select_action(self, state):
         probs = self.actor(state)
         c = Categorical(probs)
@@ -122,10 +113,7 @@ class Runner:
 
     def estimate_value(self, state):
         pred = self.critic(state).squeeze(0)
-        if self.critic.value_history.dim() != 0:
-            self.critic.value_history = torch.cat([self.critic.value_history, pred])
-        else:
-            self.critic.policy_history = pred
+        self.critic.value_history = torch.cat([self.critic.value_history, pred])
 
     def update_a2c(self):
         R = 0
@@ -165,8 +153,11 @@ class Runner:
             state = env.reset()
             self.entropy = 0
             done = False
+            
+            total_steps = 2000
+            threshold = 1800
 
-            for _ in range(1000):
+            for _ in range(total_steps):
                 env.render()
                 self.estimate_value(state)
 
@@ -192,7 +183,7 @@ class Runner:
             self.writer.add_scalar("Actor Loss", a_loss, episode)
             self.writer.add_scalar("Reward", rewards, episode)
 
-            if rewards >= 700 and rewards > max_rewards:
+            if rewards > threshold and rewards > max_rewards or rewards == total_steps:
                 max_rewards = rewards
                 ac = ActorCritic(self.actor, self.critic)
                 torch.save(ac.state_dict(), f"{self.logs}/model_{episode}.pt")
@@ -212,7 +203,7 @@ class Runner:
     def run(self):
         state = env.reset()
 
-        for _ in range(1200):
+        for _ in range(2000):
             env.render()
             action = self.select_action(state)
             state, reward, done = env.step(action.data[0].item())
