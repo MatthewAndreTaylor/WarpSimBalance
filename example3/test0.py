@@ -33,7 +33,7 @@ class Example:
 
         self.integrator = wp.sim.SemiImplicitIntegrator()
         self.renderer = wp.sim.render.SimRendererOpenGL(
-            self.model, "example4", headless=False
+            self.model, "example", headless=False
         )
         self.state = self.model.state()
 

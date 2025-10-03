@@ -30,9 +30,9 @@ class Example:
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
         self.renderer = wp.sim.render.SimRendererOpenGL(
-            self.model, "example0", headless=False
+            self.model, "example", headless=False
         )
-        # self.renderer = wp.sim.render.SimRenderer(self.model, path="example0.usd")
+        # self.renderer = wp.sim.render.SimRenderer(self.model, path="example.usd")
         self.state = self.model.state()
 
         wp.sim.eval_fk(

@@ -1,9 +1,15 @@
 import warp as wp
 import warp.sim.render
 import random
-
+import math
+import matplotlib.pyplot as plt
 
 # Modified cart pole problem using warp.sim API (3 degrees of freedom)
+
+times = []
+cart_positions = []
+pole_angles = []
+pole_angular_velocities = []
 
 
 @wp.kernel
@@ -48,9 +54,9 @@ class Example:
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
         self.renderer = wp.sim.render.SimRendererOpenGL(
-            self.model, "example3", headless=False
+            self.model, "example", headless=False
         )
-        # self.renderer = wp.sim.render.SimRenderer(self.model, path="example3.usd")
+        # self.renderer = wp.sim.render.SimRenderer(self.model, path="example.usd")
         self.state = self.model.state()
 
         wp.sim.eval_fk(
@@ -119,6 +125,9 @@ class Example:
             )
 
     def step(self):
+
+        self.cart_physical_properties()
+
         self.set_cart_trajectory(self.state, self.sim_time)
 
         if self.use_cuda_graph:
@@ -132,6 +141,39 @@ class Example:
         self.renderer.render(self.state)
         self.renderer.end_frame()
 
+    def cart_physical_properties(self):
+        cart_id = 0
+        pole_id = 1
+
+        # convert transforms to numpy
+        body_q = self.state.body_q.numpy()
+        body_qd = self.state.body_qd.numpy()
+
+        t = self.sim_time
+
+        # --- Cart ---
+        cart_pos = body_q[cart_id]  # [px, py, pz, qx, qy, qz, qw]
+
+        # --- Pole ---
+        pole_quat = body_q[pole_id][3:]  # quaternion part
+
+        local_down = wp.vec3(0.0, -1.0, 0.0)
+        world_down = wp.quat_rotate(pole_quat, local_down)
+        global_down = wp.vec3(0.0, -1.0, 0.0)
+
+        cos_theta = wp.dot(world_down, global_down) / (
+            wp.length(world_down) * wp.length(global_down)
+        )
+        theta = float(math.acos(cos_theta))
+        theta_dot = body_qd[pole_id][
+            3:
+        ]  # angular velocity around the pole's local y-axis
+
+        times.append(t)
+        cart_positions.append(cart_pos[:3])
+        pole_angles.append(theta)
+        pole_angular_velocities.append(theta_dot)
+
 
 if __name__ == "__main__":
     import argparse
@@ -143,7 +185,7 @@ if __name__ == "__main__":
         "--device", type=str, default=None, help="Override the default Warp device."
     )
     parser.add_argument(
-        "--num-frames", type=int, default=10000, help="Total number of frames."
+        "--num-frames", type=int, default=1000, help="Total number of frames."
     )
 
     args = parser.parse_known_args()[0]
@@ -154,5 +196,32 @@ if __name__ == "__main__":
         for _ in range(args.num_frames):
             example.step()
             example.render()
+
+        # graph the statistics
+        plt.figure(figsize=(12, 8))
+        plt.suptitle("Cart-Pole Simulation Statistics")
+        plt.subplot(2, 2, 1)
+        plt.plot(times, cart_positions, label="Cart Position")
+        plt.title("Cart Position")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Position (m)")
+        plt.legend()
+
+        plt.subplot(2, 2, 2)
+        plt.plot(times, pole_angles, label="Pole Angle")
+        plt.title("Pole Angle")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Angle (radians)")
+        plt.legend()
+
+        plt.subplot(2, 2, 3)
+        plt.plot(times, pole_angular_velocities, label="Pole Angular Velocity")
+        plt.title("Pole Angular Velocity")
+        plt.xlabel("Time (s)")
+        plt.ylabel("Angular Velocity (radians/s)")
+        plt.legend()
+
+        plt.tight_layout()
+        plt.show()
 
         example.renderer.save()

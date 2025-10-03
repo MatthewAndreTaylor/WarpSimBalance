@@ -15,8 +15,7 @@ def set_cart_kernel(body_q: wp.array(dtype=wp.transform), t: float):
     x = r * wp.cos(omega * t)
     z = r * wp.sin(omega * t)
     y = 2.0
-    q = wp.quat_identity()
-    body_q[0] = wp.transform(wp.vec3(x, y, z), q)
+    body_q[0] = wp.transform(wp.vec3(x, y, z), wp.quat_identity())
 
 
 class Example:
@@ -49,9 +48,9 @@ class Example:
         self.integrator = wp.sim.SemiImplicitIntegrator()
 
         self.renderer = wp.sim.render.SimRendererOpenGL(
-            self.model, "example2", headless=False
+            self.model, "example", headless=False
         )
-        # self.renderer = wp.sim.render.SimRenderer(self.model, path="example2.usd")
+        # self.renderer = wp.sim.render.SimRenderer(self.model, path="example.usd")
         self.state = self.model.state()
 
         wp.sim.eval_fk(

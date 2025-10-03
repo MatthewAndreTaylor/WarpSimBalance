@@ -2,3 +2,4 @@ warp-lang==1.8.1
 numpy
 matplotlib
 pyglet==2.1.8
+tensorboard
