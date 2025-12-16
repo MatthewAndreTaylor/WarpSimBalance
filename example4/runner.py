@@ -7,7 +7,9 @@ import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 from torch.autograd import Variable
 from torch.distributions import Categorical
-from test import Example
+
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
 
 import argparse
 
@@ -20,6 +22,8 @@ parser.add_argument("--episodes", type=int, default=800)  # Number of training e
 parser.add_argument("--gamma", type=float, default=0.99)  # Discount factor
 parser.add_argument("--run", action="store_true", help="Run the simulation")
 args = parser.parse_args()
+
+from test import Example
 
 env = Example()
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
