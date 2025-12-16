@@ -153,7 +153,7 @@ class Runner:
             state = env.reset()
             self.entropy = 0
             done = False
-            
+
             total_steps = 2000
             threshold = 1800
 
@@ -198,7 +198,6 @@ class Runner:
     def save(self):
         ac = ActorCritic(self.actor, self.critic)
         torch.save(ac.state_dict(), f"{self.logs}/model.pt")
-
 
     def run(self):
         state = env.reset()

@@ -6,17 +6,18 @@ import enum
 
 @wp.kernel
 def set_cart_kernel(
-    body_q: wp.array(dtype=wp.transform), control_pos: wp.vec3
+    body_q: wp.array(dtype=wp.transform), control_pos: wp.array(dtype=wp.vec3)
 ):
-    body_q[0] = wp.transform(control_pos, wp.quat_identity())
+    body_q[0] = wp.transform(control_pos[0], wp.quat_identity())
 
 
 class ActionSpaceType(enum.Enum):
     CONTINUOUS = enum.auto()
     DISCRETE = enum.auto()
 
+
 class Example:
-    def __init__(self):
+    def __init__(self, use_cuda_graph=False, headless=False):
         self.gravity = -1.0
         builder = wp.sim.ModelBuilder(gravity=self.gravity)
         self.create_cartpole(builder)
@@ -30,6 +31,9 @@ class Example:
 
         self.sim_time = 0.0
         self.current_pos = wp.vec3(0.0, 2.0, 0.0)
+        self.current_pos_array = wp.array(
+            [self.current_pos], dtype=wp.vec3, device=wp.get_device()
+        )
         self.curr_speed = wp.vec3(0.0, 0.0, 0.0)
 
         fps = 120
@@ -46,13 +50,13 @@ class Example:
 
         self.integrator = wp.sim.SemiImplicitIntegrator()
         self.renderer = wp.sim.render.SimRendererOpenGL(
-            self.model, "example", headless=False
+            self.model, "example", headless=headless
         )
         self.state = self.model.state()
-        
-        self.use_cuda_graph = False
-        # self.use_cuda_graph = wp.get_device().is_cuda
-        
+
+        # CUDA graph
+        self.use_cuda_graph = use_cuda_graph and wp.get_device().is_cuda
+        self.graph = None
         if self.use_cuda_graph:
             with wp.ScopedCapture() as capture:
                 self.simulate()
@@ -96,25 +100,24 @@ class Example:
             limit_kd=1.0e1,
         )
 
-    def set_cart_trajectory(self, state, action):
+    def set_cart_trajectory(self, action):
 
         if self.action_space_type == ActionSpaceType.CONTINUOUS:
             raise NotImplementedError("Continuous action space not implemented")
 
         elif self.action_space_type == ActionSpaceType.DISCRETE:
-                discrete_action = self.actions[action]
-                # Add velocity damping/friction
-                damping = 0.97  # 0 < damping < 1, lower = more friction
-                self.curr_speed *= damping
-                self.curr_speed += discrete_action
-                self.current_pos += self.curr_speed * self.frame_dt
+            discrete_action = self.actions[action]
+            # Add velocity damping/friction
+            damping = 0.97  # 0 < damping < 1, lower = more friction
+            self.curr_speed *= damping
+            self.curr_speed += discrete_action
+            self.current_pos += self.curr_speed * self.frame_dt
 
-        wp.launch(
-            kernel=set_cart_kernel,
-            dim=1,
-            inputs=[state.body_q, self.current_pos],
-            device=state.body_q.device,
-        )
+            # copy buffer
+            new_pos = wp.array(
+                [self.current_pos], dtype=wp.vec3, device=wp.get_device()
+            )
+            wp.copy(self.current_pos_array, new_pos)
 
     def is_fallen(self, pole_quat):
         qw = float(np.clip(pole_quat[3], -1.0, 1.0))
@@ -122,8 +125,7 @@ class Example:
 
         # threshold: 90 degrees (tunable)
         max_tilt = np.deg2rad(90.0)
-        terminated = bool(tilt > max_tilt)
-        return terminated
+        return tilt > max_tilt
 
     def reset(self):
         self.current_pos = wp.vec3(0.0, 2.0, 0.0)
@@ -143,7 +145,7 @@ class Example:
 
         Returns (observation, reward, terminated)
         """
-        self.set_cart_trajectory(self.state, action)
+        self.set_cart_trajectory(action)
 
         if self.use_cuda_graph:
             wp.capture_launch(self.graph)
@@ -161,17 +163,21 @@ class Example:
         terminated = self.is_fallen(pole_quat)
         return obs, 1.0, terminated
 
-    def render(self):
-        self.renderer.begin_frame(self.sim_time)
-        self.renderer.render(self.state)
-        self.renderer.end_frame()
-
     def simulate(self):
         for _ in range(self.sim_substeps):
             self.state.clear_forces()
             self.state = self.integrator.simulate(
                 self.model, self.state, self.state, self.sim_dt
             )
+
+        wp.launch(
+            set_cart_kernel, dim=1, inputs=[self.state.body_q, self.current_pos_array]
+        )
+
+    def render(self):
+        self.renderer.begin_frame(self.sim_time)
+        self.renderer.render(self.state)
+        self.renderer.end_frame()
 
     def get_state_vector(self):
         cart_id = 0
@@ -183,7 +189,7 @@ class Example:
 
         # --- Cart ---
         cart_pos = body_q[cart_id]  # [px, py, pz, qx, qy, qz, qw]
-        #cart_pos = cart_pos[[0, 2]]
+        # cart_pos = cart_pos[[0, 2]]
         cart_pos = cart_pos[[0]]
 
         # --- Pole ---
@@ -216,7 +222,7 @@ if __name__ == "__main__":
         import keyboard
 
     with wp.ScopedDevice(args.device):
-        example = Example()
+        example = Example(use_cuda_graph=False)
 
         terminated = False
         check_terminated = True
